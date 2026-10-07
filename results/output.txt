@@ -1,0 +1,8 @@
+===== Distributed Dataset Statistics =====
+Dataset Size : 16
+MPI Processes: 4
+Sum          : 1360
+Average      : 85.00
+Maximum      : 160
+Minimum      : 10
+==========================================
