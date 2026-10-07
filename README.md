@@ -363,3 +363,10 @@ The program computes the sum, average, maximum and minimum of a dataset using MP
 
 
 
+## 12. How to Upload to GitHub
+
+1. Go to **github.com** → click **+** → **New repository**.
+2. Give it a name → click **Create repository**.
+3. Click **Add file → Upload files**.
+4. Drag in `README.md`, `.gitignore`, and the `images`, `results`, `screenshots` folders.
+5. Click **Commit changes**.
