@@ -4,6 +4,7 @@
 **Theme:** 6 – Distributed Dataset Statistics
 **Parallel Model:** MPI (Message Passing Interface)
 **Team:** B1 Team 6
+**Dataset size used:** N = 1000 (numbers 1 to 1000)
 
 | Name | Roll No. |
 |------|----------|
@@ -16,56 +17,54 @@
 
 ## 1. Objective
 
-To calculate the **sum, average, maximum and minimum** of a numerical dataset using multiple **MPI processes**, and to study how splitting the work across processes (and machines) affects execution time, speedup and efficiency.
+To calculate the **sum, average, maximum and minimum** of a dataset of **1000 numbers** using **4 MPI processes** on a cluster of one Master and three Worker VMs, and to compare the parallel result and workload with the sequential version.
 
-## 2. Introduction 
+## 2. Introduction (in simple words)
 
-When a dataset is very large, one computer takes a long time to process it. Instead, we can **divide the data into equal parts** and give each part to a different process. Every process works on its own part at the same time. At the end, the partial answers are **combined** into the final answer.
+When a dataset is large, one computer takes a long time to process it. Instead, we can **divide the data into equal parts** and give each part to a different process. Every process works on its own part at the same time. At the end, the partial answers are **combined** into the final answer.
 
-**MPI** is a standard library that lets many processes (running on one or many computers) talk to each other by sending messages. Each process has a number called its **rank** (0, 1, 2, ...). Rank 0 is normally the **master** that distributes data and collects results.
+**MPI** is a library that lets many processes (on one or many computers) talk to each other by sending messages. Each process has a number called its **rank** (0, 1, 2, 3). Rank 0 is the **master**: it holds the data, sends parts to the others and collects the results. Every process has its **own memory**, so data must be sent explicitly.
 
 ## 3. Problem Definition
 
-**Input:** A dataset of `N` numbers.
-**Output:** Sum, Average (= Sum / N), Maximum, Minimum.
-**Goal:** Compute these in parallel using `P` MPI processes 
+- **Input:** a dataset of N = 1000 integers (1, 2, 3, ..., 1000).
+- **Output:** Sum, Average (= Sum / N), Maximum, Minimum.
+- **Goal:** compute these using 4 MPI processes and check that the answer equals the sequential answer.
 
-## 4. Algorithm
+Expected answer (by formula): Sum = 1000 x 1001 / 2 = **500500**, Average = **500.50**, Max = **1000**, Min = **1**.
+
+## 4. Algorithms
 
 ### 4.1 Sequential Algorithm
-1. Read or generate the dataset.
-2. Loop through all `N` elements once.
-3. Keep a running sum, and update max and min.
-4. Average = sum / N.
-
-Time complexity: **O(N)**.
+```
+sum = 0; max = min = first element
+for each number x in the dataset:
+    sum = sum + x
+    if x > max: max = x
+    if x < min: min = x
+average = sum / N
+```
+Time complexity: **O(N)**, all work done by one process.
 
 ### 4.2 Parallel Design (MPI)
-1. **Initialise** MPI (`MPI_Init`) and get the rank and number of processes (`MPI_Comm_rank`, `MPI_Comm_size`).
-2. **Check:** the program needs exactly **4 processes**. If not, rank 0 prints a message and all processes exit.
-3. The dataset of **16 integers** (10, 20, ..., 160) is stored in the program.
-4. **Distribute:** `MPI_Scatter` sends **4 elements to each process** (16 / 4 = 4).
-5. **Local computation:** every process finds the sum, maximum and minimum of its own 4 elements.
-6. **Combine:** three `MPI_Reduce` calls collect the partial results at rank 0:
-   - `MPI_SUM` for the total sum
-   - `MPI_MAX` for the global maximum
-   - `MPI_MIN` for the global minimum
-7. **Final result:** rank 0 calculates average = total sum / 16 and prints all statistics.
-8. **Finalise** MPI (`MPI_Finalize`).
+1. **Initialise** MPI and get the rank and number of processes.
+2. **Rank 0** creates the dataset (1 to 1000).
+3. **Distribute:** `MPI_Scatter` gives each process an equal block of **1000 / 4 = 250** numbers.
+4. **Local computation:** every process finds the sum, maximum and minimum of its own 250 numbers.
+5. **Combine:** `MPI_Reduce` with `MPI_SUM`, `MPI_MAX` and `MPI_MIN` collects the partial results at rank 0.
+6. **Final result:** rank 0 computes average = total sum / 1000, prints the statistics and the execution time.
+7. **Finalise** MPI.
 
 ```
-              Rank 0 holds data[16]
-                      |  MPI_Scatter (4 elements each)
+              Rank 0 holds the 1000 numbers
+                      |  MPI_Scatter (250 numbers each)
      +----------+-----+-----+----------+
-     |          |           |          |
   Rank 0     Rank 1      Rank 2     Rank 3
- 1..250      251..500      501..750    751..1000
+  1-250     251-500     501-750    751-1000
  local calc  local calc  local calc local calc
-     |          |           |          |
      +----------+-----+-----+----------+
                       |  MPI_Reduce (SUM, MAX, MIN)
-                   Rank 0
-        Final Sum, Average, Max, Min
+                   Rank 0 -> Sum, Average, Max, Min
 ```
 
 ### 4.3 MPI Functions Used
@@ -73,24 +72,22 @@ Time complexity: **O(N)**.
 | Function | Purpose |
 |----------|---------|
 | `MPI_Init` / `MPI_Finalize` | Start and end the MPI environment |
-| `MPI_Comm_rank` | Get the process number (rank) |
-| `MPI_Comm_size` | Get the total number of processes |
+| `MPI_Comm_rank` / `MPI_Comm_size` | Get the rank and the number of processes |
 | `MPI_Scatter` | Divide the dataset equally among all processes |
-| `MPI_Reduce` | Combine partial results (sum, max, min) at rank 0 |
+| `MPI_Reduce` | Combine partial sum, max and min at rank 0 |
+| `MPI_Wtime` | Measure execution time |
 
 ### 4.4 Work Done by Each Process
 
-| Rank         | Node    | Elements Received | Local Sum         | Local Max      | Local Min   |
-| ------------ | ------- | ----------------- | ----------------- | -------------- | ----------- |
-| 0            | master  | 1–250             | 31,375            | 250            | 1           |
-| 1            | worker1 | 251–500           | 93,875            | 500            | 251         |
-| 2            | worker2 | 501–750           | 156,375           | 750            | 501         |
-| 3            | worker3 | 751–1000          | 218,875           | 1000           | 751         |
-| **Combined** |         | **1000 elements** | **500,500 (SUM)** | **1000 (MAX)** | **1 (MIN)** |
+| Rank | Node | Numbers Received | Count | Local Sum |
+|------|------|------------------|-------|-----------|
+| 0 | master | 1 – 250 | 250 | 31375 |
+| 1 | worker1 | 251 – 500 | 250 | 93875 |
+| 2 | worker2 | 501 – 750 | 250 | 156375 |
+| 3 | worker3 | 751 – 1000 | 250 | 218875 |
+| **Combined** | | | **1000** | **500500** |
 
-
-Average = 500,500 / 1000 = 500.50
-31,375 + 93,875 + 156,375 + 218,875 = 500,500
+(Local sums are calculated from the block each rank receives. 31375 + 93875 + 156375 + 218875 = 500500.)
 
 ## 5. Environment / Cluster Setup
 
@@ -197,15 +194,16 @@ The hostfile tells `mpirun` which machines take part in the run. `slots=1` means
 
 ```
 lab-evaluation-parallel-computing/
-|-- README.md                          # This report
+|-- README.md
 |-- src/
-|   |-- dataset_stats_sequential.c     # Sequential baseline
-|   `-- dataset_stats_parallel_mpi.c   # MPI parallel version
-|-- data/                              # Dataset (also built into the code)
-|-- results/                           # Terminal output / screenshots
-|-- graphs/                            # Plots (if timing runs are done)
-|-- report/                            # Optional PDF report
-`-- presentation/                      # The single PPT (lab evaluation only)
+|   |-- dataset_stats_sequential.c        # Sequential version (n = 1000)
+|   |-- dataset_stats_sequential_timed.c  # Same, with timing (optional)
+|   `-- dataset_stats_parallel_mpi.c      # MPI parallel version
+|-- data/                                 # Dataset (numbers 1..1000 generated in code)
+|-- results/                              # Output text and terminal screenshots
+|-- graphs/                               # Comparison graphs
+|-- report/                               # Optional PDF report
+`-- presentation/                         # The single PPT
 ```
 
 ## 7. How to Build and Run
@@ -231,7 +229,13 @@ mpirun -np 4 --hostfile hosts sh -c '$HOME/dataset_stats'
 ```
 This starts 4 MPI ranks: rank 0 on the Master and ranks 1, 2, 3 on Worker1, Worker2, Worker3.
 
-### 7.4 Run on a single machine (for testing)
+### 7.4 Sequential version (single process)
+```bash
+gcc src/dataset_stats_sequential.c -o dataset_stats_sequential
+./dataset_stats_sequential
+```
+
+### 7.5 Run MPI on a single machine (for testing)
 ```bash
 mpirun -np 4 ./dataset_stats
 ```
@@ -240,133 +244,129 @@ mpirun -np 4 ./dataset_stats
 
 ## 8. Source Code
 
-File: `src/dataset_stats_parallel_mpi.c`
-
+### 8.1 Sequential (`src/dataset_stats_sequential.c`)
 ```c
-/* REFERENCE VERSION - replace this file with your final submitted code.
-   MPI parallel Sum, Average, Max, Min of N numbers (1..N). */
 #include <stdio.h>
-#include <stdlib.h>
-#include <mpi.h>
-
-#define N 1000
-
-int main(int argc, char *argv[])
-{
-    int rank, size;
-    int *data = NULL;
-
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    if (N % size != 0)
-    {
-        if (rank == 0)
-            printf("Dataset size must be divisible by the number of processes.\n");
-        MPI_Finalize();
-        return 0;
+int main() {
+    int n = 1000;
+    long long sum = 0;
+    int max = 1, min = 1;
+    for (int i = 1; i <= n; i++) {
+        sum += i;
+        if (i > max) max = i;
+        if (i < min) min = i;
     }
-
-    int chunk = N / size;
-    int *local_data = (int *)malloc(chunk * sizeof(int));
-
-    if (rank == 0)
-    {
-        data = (int *)malloc(N * sizeof(int));
-        for (int i = 0; i < N; i++)
-            data[i] = i + 1;
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    double start = MPI_Wtime();
-
-    MPI_Scatter(data, chunk, MPI_INT, local_data, chunk, MPI_INT, 0, MPI_COMM_WORLD);
-
-    long long local_sum = 0;
-    int local_max = local_data[0], local_min = local_data[0];
-    for (int i = 0; i < chunk; i++)
-    {
-        local_sum += local_data[i];
-        if (local_data[i] > local_max) local_max = local_data[i];
-        if (local_data[i] < local_min) local_min = local_data[i];
-    }
-
-    long long total_sum;
-    int global_max, global_min;
-    MPI_Reduce(&local_sum, &total_sum, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_max, &global_max, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&local_min, &global_min, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    double end = MPI_Wtime();
-
-    if (rank == 0)
-    {
-        printf("\n===== Distributed Dataset Statistics =====\n");
-        printf("Dataset Size : %d\n", N);
-        printf("MPI Processes: %d\n", size);
-        printf("Sum          : %lld\n", total_sum);
-        printf("Average      : %.2f\n", (double)total_sum / N);
-        printf("Maximum      : %d\n", global_max);
-        printf("Minimum      : %d\n", global_min);
-        printf("Execution Time: %.4f seconds\n", end - start);
-        printf("==========================================\n");
-        free(data);
-    }
-
-    free(local_data);
-    MPI_Finalize();
+    double average = (double)sum / n;
+    printf("Sequential Dataset Statistics\n");
+    printf("Dataset Size = %d\n", n);
+    printf("Sum = %lld\n", sum);
+    printf("Average = %.2f\n", average);
+    printf("Maximum = %d\n", max);
+    printf("Minimum = %d\n", min);
     return 0;
 }
 ```
 
+### 8.2 Parallel MPI (`src/dataset_stats_parallel_mpi.c`)
+The MPI program follows the design in Section 4.2 (`MPI_Scatter`, local computation, three `MPI_Reduce` calls, `MPI_Wtime` for timing). See the source file in `src/`.
+
 ## 9. Output
 
-Run on the cluster (Master + 3 Workers) with 4 MPI processes:
+### 9.1 Sequential (run on WSL)
+```
+Sequential Dataset Statistics
+Dataset Size = 1000
+Sum = 500500
+Average = 500.50
+Maximum = 1000
+Minimum = 1
+```
+Screenshot: `<img width="1600" height="906" alt="WhatsApp Image 2026-10-07 at 9 37 29 PM" src="https://github.com/user-attachments/assets/78c5baf0-62e0-4d71-840a-7344c67e1db9" />`
 
-<img width="1496" height="1051" alt="image" src="https://github.com/user-attachments/assets/ea548429-a3c5-44e9-b609-87ed1094109e" />
+### 9.2 MPI – 4 processes on the Master + 3 Worker cluster
+```
+===== Distributed Dataset Statistics =====
+Dataset Size : 1000
+MPI Processes: 4
+Sum          : 500500
+Average      : 500.50
+Maximum      : 1000
+Minimum      : 1
+Execution Time: 0.0003 seconds        (Run 2; Run 1 gave 0.0009 seconds)
+==========================================
+```
+Screenshots: `<img width="1496" height="1051" alt="WhatsApp Image 2026-10-07 at 9 40 19 PM" src="https://github.com/user-attachments/assets/597dd400-a38b-46b2-92d1-017e7a85d195" />`
+
+## 10. Results and Comparison
+
+### 10.1 Correctness
+| Quantity | Formula / Expected | Sequential | MPI (4 processes) |
+|----------|--------------------|------------|-------------------|
+| Sum | 1000 x 1001 / 2 | 500500 | 500500 |
+| Average | 500500 / 1000 | 500.50 | 500.50 |
+| Maximum | N | 1000 | 1000 |
+| Minimum | 1 | 1 | 1 |
+
+The parallel output is **identical** to the sequential output and to the formula, so the MPI program is **correct**.
+
+### 10.2 MPI Execution Time (N = 1000, 4 processes)
+
+| Run | Execution Time |
+|-----|----------------|
+| Run 1 | 0.0009 s (0.9 ms) |
+| Run 2 | 0.0003 s (0.3 ms) |
+
+![MPI execution time](
+)
+
+### 10.3 Workload Comparison
+
+| Version | Processes | Numbers handled by each process |
+|---------|-----------|---------------------------------|
+| Sequential | 1 | 1000 |
+| MPI parallel | 4 | 250 |
+
+Each MPI process does **4 times less work** than the sequential process.
+
+![Work per process](<img width="1300" height="800" alt="image" src="https://github.com/user-attachments/assets/79c6a465-2c2a-43f4-b3ec-19517c1b8e6b" />
+)
+
+### 10.4 Speedup and Efficiency
+Speedup = T(sequential) / T(parallel) and Efficiency = Speedup / 4.
+The sequential program in the lab did not print its execution time, and it was run on a different system (Windows WSL) from the MPI cluster (Ubuntu VMs). So a fair speedup value is **not calculated here**. To obtain it, run `src/dataset_stats_sequential_timed.c` on the Master VM and put the time in this table:
+
+| T(sequential) | T(parallel, 4 processes) | Speedup | Efficiency |
+|---------------|--------------------------|---------|------------|
+| [measure on master VM] | 0.0003 s (best run) | [ ] | [ ] |
+
+## 11. Analysis and Discussion
+
+- The 1000 numbers are split equally, so every process has the **same workload** (250 numbers) and the load is balanced.
+- Each process works only on its own memory. Data is moved only by `MPI_Scatter` and `MPI_Reduce`, and only three small values (sum, max, min) are sent back by each process.
+- The MPI time changed between runs (0.9 ms and 0.3 ms). This shows that the time at this size is mostly **communication and network overhead** between the VMs, which varies from run to run.
+- For N = 1000 the actual calculation takes only a few microseconds, so the communication time is larger than the computation time. Therefore a big speedup is **not expected** at this size. Parallel processing becomes useful for **much larger datasets**, where computing time dominates.
+- `MPI_Reduce` is efficient because rank 0 combines only a few partial answers instead of receiving every number.
 
 
-### Verification
-The dataset contains 1000 values ranging from 1 to 1000.
-Sum = 1 + 2 + ... + 1000 = 500500 (matches)
-Average = 500500 / 1000 = 500.50 (matches)
-Maximum = 1000 (matches)
-Minimum = 1 (matches)
 
-The MPI output is the same as the manually calculated values, so the program is **correct**.
+## 12. Known Messages / Troubleshooting
 
-## 10. Results and Analysis
+- **"Authorization required, but no authorization protocol specified"** appears many times in the terminal during the run. It is a display (X11 / GUI) authorization warning from the VM and does **not** affect the MPI computation. The final output is correct.
+- The program prints `Executon Time` in the screenshot (spelling mistake in the print statement). Correct it to `Execution Time` in the source before final submission.
+- If `mpirun` cannot reach workers, check passwordless SSH and the names in `hosts`.
+- If the executable is not found on a worker, copy it again using `scp`.
 
-### 10.1 Performance
-The program is designed to prove **correct distributed processing** on a small dataset of 16 elements. It does not measure execution time.
+## 13. Checkpoint Mapping
 
-| Dataset Size | Processes | Elements per Process | Result |
-|--------------|-----------|----------------------|--------|
-| 1000 | 4 | 250 | Correct |
+| Checkpoint | Work | Where in this repo |
+|-----------|------|--------------------|
+| 1 | Problem definition, sequential algorithm, parallel design | Sections 3 and 4 |
+| 2 | Working parallel implementation (MPI) | `src/`, Sections 5, 7, 8 |
+| 3 | Run and collect results | Sections 9 and 10, `results/` |
+| 4 | Graphs and analysis | `graphs/`, Sections 10 and 11 |
+| 5 | Final demonstration and viva | `presentation/` |
 
+## 14. Conclusion
 
+The program computes the sum, average, maximum and minimum of 1000 numbers using 4 MPI processes on one Master and three Worker VMs. The data was divided with `MPI_Scatter` (250 numbers per process) and combined with `MPI_Reduce`. The result (Sum = 500500, Average = 500.50, Max = 1000, Min = 1) matches the sequential program and the formula. Each process does four times less work than the sequential version. At this small size, communication overhead dominates the execution time (0.3 ms to 0.9 ms), so larger datasets are needed to show real speedup.
 
-
-### 10.2 Discussion
-- The 1000 elements are split equally, so every process does the **same amount of work** (good load balance).
-- Each process works only on its own memory. Data is moved only by `MPI_Scatter` and `MPI_Reduce`.
-- Only **three small values** (sum, max, min) per process are sent back, so communication after computation is very small.
-- For a **very large dataset**, each process would handle many more elements and the parallel version would become faster than the sequential one.
-- Using `MPI_Reduce` is better than sending every number to rank 0, because rank 0 only combines a few partial answers.
-
-
-## 11. Conclusion
-
-The program computes the sum, average, maximum and minimum of a dataset using MPI on a cluster of one Master and three Worker VMs. The data was divided with `MPI_Scatter`, each process calculated its own partial results, and `MPI_Reduce` combined them at rank 0. The output (Sum = 1360, Average = 85.00, Max = 160, Min = 10) matches the manual calculation. The experiment shows how data is shared between processes with separate memory, and why parallel computing is useful mainly for large datasets.
-
-
-
-## 12. How to Upload to GitHub
-
-1. Go to **github.com** → click **+** → **New repository**.
-2. Give it a name → click **Create repository**.
-3. Click **Add file → Upload files**.
-4. Drag in `README.md`, `.gitignore`, and the `images`, `results`, `screenshots` folders.
-5. Click **Commit changes**.
