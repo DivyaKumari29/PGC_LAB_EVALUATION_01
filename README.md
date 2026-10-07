@@ -281,7 +281,7 @@ Average = 500.50
 Maximum = 1000
 Minimum = 1
 ```
-Screenshot: `<img width="1600" height="906" alt="WhatsApp Image 2026-10-07 at 9 37 29 PM" src="https://github.com/user-attachments/assets/78c5baf0-62e0-4d71-840a-7344c67e1db9" />`
+Screenshot: <img width="1600" height="906" alt="WhatsApp Image 2026-10-07 at 9 37 29 PM" src="https://github.com/user-attachments/assets/78c5baf0-62e0-4d71-840a-7344c67e1db9" />
 
 ### 9.2 MPI – 4 processes on the Master + 3 Worker cluster
 ```
@@ -295,7 +295,7 @@ Minimum      : 1
 Execution Time: 0.0003 seconds        (Run 2; Run 1 gave 0.0009 seconds)
 ==========================================
 ```
-Screenshots: `<img width="1496" height="1051" alt="WhatsApp Image 2026-10-07 at 9 40 19 PM" src="https://github.com/user-attachments/assets/597dd400-a38b-46b2-92d1-017e7a85d195" />`
+Screenshots: <img width="1496" height="1051" alt="WhatsApp Image 2026-10-07 at 9 40 19 PM" src="https://github.com/user-attachments/assets/597dd400-a38b-46b2-92d1-017e7a85d195" />
 
 ## 10. Results and Comparison
 
@@ -316,7 +316,8 @@ The parallel output is **identical** to the sequential output and to the formula
 | Run 1 | 0.0009 s (0.9 ms) |
 | Run 2 | 0.0003 s (0.3 ms) |
 
-![MPI execution time](
+![MPI execution time](<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/c3b5ceaa-3aa2-48cd-90a7-e38c17fba69c" />
+
 )
 
 ### 10.3 Workload Comparison
@@ -328,8 +329,7 @@ The parallel output is **identical** to the sequential output and to the formula
 
 Each MPI process does **4 times less work** than the sequential process.
 
-![Work per process](<img width="1300" height="800" alt="image" src="https://github.com/user-attachments/assets/79c6a465-2c2a-43f4-b3ec-19517c1b8e6b" />
-)
+![Work per process] ( <img width="1300" height="800" alt="image" src="https://github.com/user-attachments/assets/79c6a465-2c2a-43f4-b3ec-19517c1b8e6b" />)
 
 ### 10.4 Speedup and Efficiency
 Speedup = T(sequential) / T(parallel) and Efficiency = Speedup / 4.
